@@ -1,0 +1,65 @@
+name: build
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ath11k:
+    name: ath11k
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Read the build settings
+        run: cat ath11k/build.env >> "$GITHUB_ENV"
+      - name: Check that a changed build gets a new number
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git fetch --depth=1 origin "$GITHUB_BASE_REF"
+          tag="ath11k-$OPENWRT_RELEASE-$BUILD"
+          if ! git diff --quiet FETCH_HEAD -- ath11k/ && gh release view "$tag" >/dev/null 2>&1; then
+            echo "::error::$tag is already released; raise BUILD in ath11k/build.env"
+            exit 1
+          fi
+      - name: Build
+        run: |
+          mkdir -m 777 out
+          docker run --rm -v "$PWD/ath11k:/ath11k:ro" -v "$PWD/out:/out" \
+            "openwrt/sdk:$TARGET-$OPENWRT_RELEASE" sh /ath11k/build.sh
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ath11k
+          path: out/
+          if-no-files-found: error
+
+  release:
+    name: release
+    needs: ath11k
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ath11k
+          path: out
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          . ath11k/build.env
+          tag="ath11k-$OPENWRT_RELEASE-$BUILD"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "$tag is already released"
+            exit 0
+          fi
+          gh release create "$tag" out/* --target "$GITHUB_SHA" --title "$tag" --notes "kmod-ath11k and kmod-ath11k-ahb for OpenWrt $OPENWRT_RELEASE ($TARGET), release r$((100 + BUILD)), with the patches in [ath11k/patches](https://github.com/$GITHUB_REPOSITORY/tree/$GITHUB_SHA/ath11k/patches). Source: the backports tarball and \`mac80211-package.tar.gz\` (the OpenWrt package with all its patches) attached here. See the README."
