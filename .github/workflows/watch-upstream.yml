@@ -1,0 +1,21 @@
+name: watch upstream
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  watch:
+    name: watch upstream
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Report what changed upstream
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: sh .github/watch-upstream.sh
