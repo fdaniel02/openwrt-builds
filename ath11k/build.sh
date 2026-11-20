@@ -20,7 +20,15 @@ done
 # Above the stock release, so the nodes' package manager never replaces this build with the stock one.
 sed -i "s/^PKG_RELEASE:=.*/PKG_RELEASE:=$((100 + BUILD))/" "$pkg/Makefile"
 
-echo CONFIG_PACKAGE_kmod-ath11k-ahb=m >> .config
+# Only the kernel modules, not the userspace packages the SDK builds by default (hostapd in all its variants and more).
+# Keep all kernel modules, as the official builds do: the set of enabled drivers decides options that change the
+# layout of structures ath11k shares with the stock mac80211 and cfg80211 modules on the device.
+cat >> .config <<'CONFIG'
+# CONFIG_ALL is not set
+# CONFIG_ALL_NONSHARED is not set
+CONFIG_ALL_KMODS=y
+CONFIG_PACKAGE_kmod-ath11k-ahb=m
+CONFIG
 make defconfig
 make package/mac80211/compile -j"$(nproc)" || make package/mac80211/compile V=s
 
