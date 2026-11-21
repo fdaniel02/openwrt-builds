@@ -56,6 +56,17 @@ apk add kmod-ath11k=<stock version> kmod-ath11k-ahb=<stock version>
 reboot
 ```
 
+### Watching upstream
+
+Every Monday the `watch upstream` workflow opens an issue here when openwrt/openwrt#24254 (the fix) or
+openwrt/openwrt#24154 (the bug) is merged or closed, or when an OpenWrt release newer than `OPENWRT_RELEASE` is out.
+Each event is reported once, so closing its issue is enough. A merged fix isn't a reason to drop this build yet: that
+takes an OpenWrt release with the fix that the devices can upgrade to. A new release needs a build here before the
+devices are upgraded, or they're back on the stock driver until it exists.
+
+GitHub switches off scheduled workflows in a public repo after 60 days without activity in it; merging the weekly
+Dependabot PRs keeps it going. If it was switched off, turn it back on under Actions.
+
 ### Build
 
 The `build` workflow builds on every PR and on `main`; on `main` it publishes the release if it doesn't exist yet.
